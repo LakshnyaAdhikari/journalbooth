@@ -231,3 +231,11 @@
     letter-spacing: -0.01em;
   }
 }
+
+@keyframes flash {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+.animate-flash {
+  animation: flash 140ms ease-out forwards;
+}
