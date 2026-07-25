@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, RefreshCw, Download, Film, Timer, Sparkles, Wand2 } from "lucide-react";
+import { Camera, RefreshCw, Download, Film, Timer, Sparkles, Wand2, BookHeart } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useCamera } from "@/hooks/use-camera";
 import { WebGLFilter } from "@/lib/webgl-filter";
@@ -198,6 +198,16 @@ export function CaptureStudio() {
                   className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent"
                 >
                   <Wand2 className="h-4 w-4" /> Send to Editor
+                </button>
+                <button
+                  onClick={() => {
+                    if (!output) return;
+                    try { sessionStorage.setItem("altcam:journal-image", output); } catch {}
+                    navigate({ to: "/journal" });
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent"
+                >
+                  <BookHeart className="h-4 w-4" /> To Journal
                 </button>
                 <button
                   onClick={() => { setOutput(null); setShots([]); }}
