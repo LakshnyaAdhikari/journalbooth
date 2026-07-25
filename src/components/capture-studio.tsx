@@ -234,10 +234,10 @@ export function CaptureStudio() {
                 key={id}
                 onClick={() => setMode(id)}
                 className={cn(
-                  "w-full flex items-center gap-2 text-left px-3 py-2 text-sm border transition-colors",
+                  "w-full flex items-center gap-2 text-left px-3 py-2 text-sm border transition-colors text-card-foreground",
                   mode === id
                     ? "bg-primary text-primary-foreground border-primary"
-                    : "border-transparent hover:border-border hover:bg-accent",
+                    : "bg-background/40 border-border hover:border-foreground hover:bg-accent hover:text-accent-foreground",
                 )}
                 style={{ borderRadius: "var(--radius-sm)" }}
               >
