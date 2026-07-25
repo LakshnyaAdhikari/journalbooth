@@ -18,7 +18,7 @@ function Capture() {
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">
           <Camera className="h-3.5 w-3.5" /> Capture
         </div>
-        <h1 className="font-display text-4xl md:text-6xl leading-[0.95] text-foreground">
+        <h1 className="font-display text-4xl md:text-6xl leading-[1.1] text-foreground">
           Shoot in <span className="text-primary">{current.label.toLowerCase()}</span>.
         </h1>
         <p className="mt-3 text-sm md:text-base text-muted-foreground max-w-xl">

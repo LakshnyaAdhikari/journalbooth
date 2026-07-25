@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, RefreshCw, Download, Film, Timer, Sparkles } from "lucide-react";
+import { Camera, RefreshCw, Download, Film, Timer, Sparkles, Wand2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useCamera } from "@/hooks/use-camera";
 import { WebGLFilter } from "@/lib/webgl-filter";
 import { AESTHETIC_PRESETS } from "@/lib/filters";
@@ -10,12 +11,13 @@ type Mode = "single" | "strip3" | "strip4" | "polaroid";
 
 const MODES: { id: Mode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "single", label: "Single", icon: Camera },
-  { id: "strip3", label: "Strip ×3", icon: Film },
-  { id: "strip4", label: "Strip ×4", icon: Film },
+  { id: "strip3", label: "Strip x3", icon: Film },
+  { id: "strip4", label: "Strip x4", icon: Film },
   { id: "polaroid", label: "Polaroid", icon: Sparkles },
 ];
 
 export function CaptureStudio() {
+  const navigate = useNavigate();
   const { aesthetic, setAesthetic } = useTheme();
   const { videoRef, start, flip, ready, error } = useCamera();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -180,12 +182,22 @@ export function CaptureStudio() {
               <p className="text-xs text-muted-foreground">
                 Download the {mode === "single" ? "photo" : "strip"} or shoot another take.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={download}
                   className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md"
                 >
                   <Download className="h-4 w-4" /> Download
+                </button>
+                <button
+                  onClick={() => {
+                    if (!output) return;
+                    try { sessionStorage.setItem("altcam:edit-image", output); } catch {}
+                    navigate({ to: "/edit" });
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent"
+                >
+                  <Wand2 className="h-4 w-4" /> Send to Editor
                 </button>
                 <button
                   onClick={() => { setOutput(null); setShots([]); }}
@@ -234,10 +246,10 @@ export function CaptureStudio() {
                 key={id}
                 onClick={() => setMode(id)}
                 className={cn(
-                  "w-full flex items-center gap-2 text-left px-3 py-2 text-sm border transition-colors",
+                  "w-full flex items-center gap-2 text-left px-3 py-2 text-sm border transition-colors text-card-foreground",
                   mode === id
                     ? "bg-primary text-primary-foreground border-primary"
-                    : "border-transparent hover:border-border hover:bg-accent",
+                    : "bg-background/40 border-border hover:border-foreground hover:bg-accent hover:text-accent-foreground",
                 )}
                 style={{ borderRadius: "var(--radius-sm)" }}
               >
