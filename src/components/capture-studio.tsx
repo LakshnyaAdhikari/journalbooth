@@ -10,8 +10,8 @@ type Mode = "single" | "strip3" | "strip4" | "polaroid";
 
 const MODES: { id: Mode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "single", label: "Single", icon: Camera },
-  { id: "strip3", label: "Strip ×3", icon: Film },
-  { id: "strip4", label: "Strip ×4", icon: Film },
+  { id: "strip3", label: "Strip x3", icon: Film },
+  { id: "strip4", label: "Strip x4", icon: Film },
   { id: "polaroid", label: "Polaroid", icon: Sparkles },
 ];
 
