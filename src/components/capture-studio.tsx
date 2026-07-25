@@ -17,6 +17,7 @@ const MODES: { id: Mode; label: string; icon: React.ComponentType<{ className?: 
 ];
 
 export function CaptureStudio() {
+  const navigate = useNavigate();
   const { aesthetic, setAesthetic } = useTheme();
   const { videoRef, start, flip, ready, error } = useCamera();
   const canvasRef = useRef<HTMLCanvasElement>(null);
