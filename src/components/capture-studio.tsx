@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, RefreshCw, Download, Film, Timer, Sparkles } from "lucide-react";
+import { Camera, RefreshCw, Download, Film, Timer, Sparkles, Wand2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useCamera } from "@/hooks/use-camera";
 import { WebGLFilter } from "@/lib/webgl-filter";
 import { AESTHETIC_PRESETS } from "@/lib/filters";
