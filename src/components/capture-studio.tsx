@@ -182,12 +182,22 @@ export function CaptureStudio() {
               <p className="text-xs text-muted-foreground">
                 Download the {mode === "single" ? "photo" : "strip"} or shoot another take.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={download}
                   className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md"
                 >
                   <Download className="h-4 w-4" /> Download
+                </button>
+                <button
+                  onClick={() => {
+                    if (!output) return;
+                    try { sessionStorage.setItem("altcam:edit-image", output); } catch {}
+                    navigate({ to: "/edit" });
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent"
+                >
+                  <Wand2 className="h-4 w-4" /> Send to Editor
                 </button>
                 <button
                   onClick={() => { setOutput(null); setShots([]); }}
