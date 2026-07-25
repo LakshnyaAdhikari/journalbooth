@@ -200,6 +200,16 @@ export function CaptureStudio() {
                   <Wand2 className="h-4 w-4" /> Send to Editor
                 </button>
                 <button
+                  onClick={() => {
+                    if (!output) return;
+                    try { sessionStorage.setItem("altcam:journal-image", output); } catch {}
+                    navigate({ to: "/journal" });
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent"
+                >
+                  <BookHeart className="h-4 w-4" /> To Journal
+                </button>
+                <button
                   onClick={() => { setOutput(null); setShots([]); }}
                   className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent"
                 >
