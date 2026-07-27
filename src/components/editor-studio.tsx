@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, Download, RotateCcw, Sliders, Sparkles } from "lucide-react";
+import { Upload, Download, RotateCcw, Sliders, Sparkles, Cloud, Check } from "lucide-react";
 import { WebGLFilter } from "@/lib/webgl-filter";
 import { AESTHETIC_PRESETS } from "@/lib/filters";
 import type { FilterParams } from "@/lib/filters";
 import { AESTHETICS, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { savePhotoToCloud } from "@/lib/cloud-photos";
+import { useAuth } from "@/lib/auth";
 
 const NEUTRAL: FilterParams = {
   saturation: 1, contrast: 1, brightness: 0, grain: 0, vignette: 0,
@@ -24,11 +26,14 @@ const SLIDERS: { key: SliderKey; label: string; min: number; max: number; step: 
 
 export function EditorStudio() {
   const { aesthetic, setAesthetic } = useTheme();
+  const { user } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterRef = useRef<WebGLFilter | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [params, setParams] = useState<FilterParams>(NEUTRAL);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   // Init WebGL
   useEffect(() => {
@@ -84,6 +89,19 @@ export function EditorStudio() {
     a.href = url;
     a.download = `altcam-edit-${Date.now()}.png`;
     a.click();
+  };
+
+  const saveToCloud = async () => {
+    const f = filterRef.current;
+    if (!f) return;
+    if (!user) { setSaveState("error"); setSaveMsg("Sign in on the Profile tab to save to cloud."); return; }
+    setSaveState("saving"); setSaveMsg(null);
+    try {
+      await savePhotoToCloud({ dataUrl: f.snapshot(), aesthetic, folder: "edits" });
+      setSaveState("saved"); setSaveMsg("Saved to your gallery.");
+    } catch (e) {
+      setSaveState("error"); setSaveMsg(e instanceof Error ? e.message : "Save failed.");
+    }
   };
 
   return (
