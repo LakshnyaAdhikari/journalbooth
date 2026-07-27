@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, Download, RotateCcw, Sliders, Sparkles } from "lucide-react";
+import { Upload, Download, RotateCcw, Sliders, Sparkles, Cloud, Check } from "lucide-react";
 import { WebGLFilter } from "@/lib/webgl-filter";
 import { AESTHETIC_PRESETS } from "@/lib/filters";
 import type { FilterParams } from "@/lib/filters";
 import { AESTHETICS, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { savePhotoToCloud } from "@/lib/cloud-photos";
+import { useAuth } from "@/lib/auth";
 
 const NEUTRAL: FilterParams = {
   saturation: 1, contrast: 1, brightness: 0, grain: 0, vignette: 0,
@@ -24,11 +26,14 @@ const SLIDERS: { key: SliderKey; label: string; min: number; max: number; step: 
 
 export function EditorStudio() {
   const { aesthetic, setAesthetic } = useTheme();
+  const { user } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterRef = useRef<WebGLFilter | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [params, setParams] = useState<FilterParams>(NEUTRAL);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   // Init WebGL
   useEffect(() => {
@@ -86,6 +91,19 @@ export function EditorStudio() {
     a.click();
   };
 
+  const saveToCloud = async () => {
+    const f = filterRef.current;
+    if (!f) return;
+    if (!user) { setSaveState("error"); setSaveMsg("Sign in on the Profile tab to save to cloud."); return; }
+    setSaveState("saving"); setSaveMsg(null);
+    try {
+      await savePhotoToCloud({ dataUrl: f.snapshot(), aesthetic, folder: "edits" });
+      setSaveState("saved"); setSaveMsg("Saved to your gallery.");
+    } catch (e) {
+      setSaveState("error"); setSaveMsg(e instanceof Error ? e.message : "Save failed.");
+    }
+  };
+
   return (
     <div className="grid md:grid-cols-[1fr_300px] gap-6 max-w-5xl mx-auto">
       <div className="space-y-4">
@@ -112,18 +130,33 @@ export function EditorStudio() {
         </div>
 
         {imgSrc && (
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
-              <Upload className="h-4 w-4" /> Replace
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-            </label>
-            <button onClick={reset} className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
-              <RotateCcw className="h-4 w-4" /> Reset
-            </button>
-            <button onClick={download} className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md ml-auto">
-              <Download className="h-4 w-4" /> Download
-            </button>
-          </div>
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
+                <Upload className="h-4 w-4" /> Replace
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+              </label>
+              <button onClick={reset} className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
+                <RotateCcw className="h-4 w-4" /> Reset
+              </button>
+              <button
+                onClick={saveToCloud}
+                disabled={saveState === "saving" || saveState === "saved"}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent disabled:opacity-60 ml-auto"
+              >
+                {saveState === "saved" ? <Check className="h-4 w-4" /> : <Cloud className="h-4 w-4" />}
+                {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Save to Cloud"}
+              </button>
+              <button onClick={download} className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md">
+                <Download className="h-4 w-4" /> Download
+              </button>
+            </div>
+            {saveMsg && (
+              <div className={cn("text-xs", saveState === "error" ? "text-destructive" : "text-muted-foreground")}>
+                {saveMsg}
+              </div>
+            )}
+          </>
         )}
       </div>
 

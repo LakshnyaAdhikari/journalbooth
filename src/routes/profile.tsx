@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { User as UserIcon, LogIn, LogOut, Mail } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { User as UserIcon, LogIn, LogOut, Mail, Save, Upload } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 
@@ -43,10 +43,156 @@ function Profile() {
         </p>
       </header>
 
-      <div className="max-w-2xl mx-auto">
-        {user ? <SignedIn email={user.email ?? ""} onSignOut={signOut} /> : <SignedOut />}
+      <div className="max-w-2xl mx-auto space-y-6">
+        {user ? (
+          <>
+            <ProfileEditor userId={user.id} />
+            <SignedIn email={user.email ?? ""} onSignOut={signOut} />
+          </>
+        ) : (
+          <SignedOut />
+        )}
       </div>
     </div>
+  );
+}
+
+function ProfileEditor({ userId }: { userId: string }) {
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "error" | "info"; text: string } | null>(null);
+  const [tableMissing, setTableMissing] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_path")
+        .eq("id", userId)
+        .maybeSingle();
+      if (error) {
+        // 42P01 = undefined_table
+        if ((error as { code?: string }).code === "42P01" || /profiles.*does not exist/i.test(error.message)) {
+          setTableMissing(true);
+          return;
+        }
+        setMsg({ kind: "error", text: error.message });
+        return;
+      }
+      if (data) {
+        setDisplayName(data.display_name ?? "");
+        if (data.avatar_path) {
+          const { data: signed } = await supabase.storage.from("photos").createSignedUrl(data.avatar_path, 3600);
+          setAvatarUrl(signed?.signedUrl ?? null);
+        }
+      }
+    })();
+  }, [userId]);
+
+  const onAvatarPick = (file: File | null | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setAvatarPreview(reader.result as string);
+    reader.readAsDataURL(file);
+    (window as unknown as { __altcamAvatarFile?: File }).__altcamAvatarFile = file;
+  };
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setMsg(null);
+    try {
+      let avatar_path: string | undefined;
+      const file = (window as unknown as { __altcamAvatarFile?: File }).__altcamAvatarFile;
+      if (file) {
+        const path = `${userId}/avatar/${Date.now()}-${file.name.replace(/[^a-z0-9.\-]/gi, "_")}`;
+        const { error: upErr } = await supabase.storage.from("photos").upload(path, file, {
+          contentType: file.type || "image/png",
+          upsert: false,
+        });
+        if (upErr) throw upErr;
+        avatar_path = path;
+      }
+      const payload: Record<string, unknown> = { id: userId, display_name: displayName || null };
+      if (avatar_path) payload.avatar_path = avatar_path;
+      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+      if (error) throw error;
+      setMsg({ kind: "info", text: "Profile saved." });
+      if (avatar_path) {
+        const { data: signed } = await supabase.storage.from("photos").createSignedUrl(avatar_path, 3600);
+        setAvatarUrl(signed?.signedUrl ?? null);
+        setAvatarPreview(null);
+        delete (window as unknown as { __altcamAvatarFile?: File }).__altcamAvatarFile;
+      }
+    } catch (err) {
+      setMsg({ kind: "error", text: err instanceof Error ? err.message : "Save failed" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (tableMissing) {
+    return (
+      <div className="border border-dashed border-border bg-card p-4 rounded-lg text-xs text-muted-foreground">
+        Run the <code className="text-foreground">profiles</code> table SQL in your Supabase dashboard (see chat) to enable display name and avatar.
+      </div>
+    );
+  }
+
+  const shownAvatar = avatarPreview ?? avatarUrl;
+
+  return (
+    <form onSubmit={save} className="border border-border bg-card p-6 rounded-lg space-y-4">
+      <div className="text-xs uppercase tracking-widest text-muted-foreground">Your profile</div>
+      <div className="flex items-center gap-4">
+        <div className="h-16 w-16 rounded-full bg-primary/10 overflow-hidden flex items-center justify-center">
+          {shownAvatar ? (
+            <img src={shownAvatar} alt="Avatar" className="h-full w-full object-cover" />
+          ) : (
+            <UserIcon className="h-6 w-6 text-muted-foreground" />
+          )}
+        </div>
+        <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 text-sm border border-input bg-background rounded-md hover:bg-accent">
+          <Upload className="h-4 w-4" /> Choose avatar
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => onAvatarPick(e.target.files?.[0])}
+          />
+        </label>
+      </div>
+      <div>
+        <label className="text-xs uppercase tracking-widest text-muted-foreground">Display name</label>
+        <input
+          type="text"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          maxLength={60}
+          placeholder="What should we call you?"
+          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={busy}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+      >
+        <Save className="h-4 w-4" /> {busy ? "Saving…" : "Save profile"}
+      </button>
+      {msg && (
+        <div
+          className={`text-xs p-3 rounded-md ${
+            msg.kind === "error"
+              ? "bg-destructive/10 text-destructive border border-destructive/30"
+              : "bg-primary/10 text-foreground border border-primary/30"
+          }`}
+        >
+          {msg.text}
+        </div>
+      )}
+    </form>
   );
 }
 

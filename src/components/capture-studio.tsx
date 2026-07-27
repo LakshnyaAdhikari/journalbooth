@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, RefreshCw, Download, Film, Timer, Sparkles, Wand2, BookHeart } from "lucide-react";
+import { Camera, RefreshCw, Download, Film, Timer, Sparkles, Wand2, BookHeart, Cloud, Check } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useCamera } from "@/hooks/use-camera";
 import { WebGLFilter } from "@/lib/webgl-filter";
 import { AESTHETIC_PRESETS } from "@/lib/filters";
 import { AESTHETICS, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { savePhotoToCloud } from "@/lib/cloud-photos";
+import { useAuth } from "@/lib/auth";
 
 type Mode = "single" | "strip3" | "strip4" | "polaroid";
 
@@ -19,6 +21,7 @@ const MODES: { id: Mode; label: string; icon: React.ComponentType<{ className?: 
 export function CaptureStudio() {
   const navigate = useNavigate();
   const { aesthetic, setAesthetic } = useTheme();
+  const { user } = useAuth();
   const { videoRef, start, flip, ready, error } = useCamera();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterRef = useRef<WebGLFilter | null>(null);
@@ -28,7 +31,21 @@ export function CaptureStudio() {
   const [shots, setShots] = useState<string[]>([]);
   const [flash, setFlash] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const preset = AESTHETIC_PRESETS[aesthetic];
+
+  const saveToCloud = async () => {
+    if (!output) return;
+    if (!user) { setSaveState("error"); setSaveMsg("Sign in on the Profile tab to save to cloud."); return; }
+    setSaveState("saving"); setSaveMsg(null);
+    try {
+      await savePhotoToCloud({ dataUrl: output, aesthetic, folder: "captures" });
+      setSaveState("saved"); setSaveMsg("Saved to your gallery.");
+    } catch (e) {
+      setSaveState("error"); setSaveMsg(e instanceof Error ? e.message : "Save failed.");
+    }
+  };
 
   // Init WebGL once
   useEffect(() => {
@@ -86,6 +103,7 @@ export function CaptureStudio() {
     if (!ready) return;
     setOutput(null);
     setShots([]);
+    setSaveState("idle"); setSaveMsg(null);
     const count = mode === "strip3" ? 3 : mode === "strip4" ? 4 : 1;
     const collected: string[] = [];
     for (let i = 0; i < count; i++) {
@@ -210,12 +228,26 @@ export function CaptureStudio() {
                   <BookHeart className="h-4 w-4" /> To Journal
                 </button>
                 <button
-                  onClick={() => { setOutput(null); setShots([]); }}
+                  onClick={saveToCloud}
+                  disabled={saveState === "saving" || saveState === "saved"}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent disabled:opacity-60"
+                >
+                  {saveState === "saved" ? <Check className="h-4 w-4" /> : <Cloud className="h-4 w-4" />}
+                  {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Save to Cloud"}
+                </button>
+                <button
+                  onClick={() => { setOutput(null); setShots([]); setSaveState("idle"); setSaveMsg(null); }}
                   className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent"
                 >
                   Retake
                 </button>
               </div>
+              {saveMsg && (
+                <div className={cn(
+                  "text-xs mt-1",
+                  saveState === "error" ? "text-destructive" : "text-muted-foreground",
+                )}>{saveMsg}</div>
+              )}
             </div>
           </div>
         )}
