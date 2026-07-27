@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, RefreshCw, Download, Film, Timer, Sparkles, Wand2, BookHeart } from "lucide-react";
+import { Camera, RefreshCw, Download, Film, Timer, Sparkles, Wand2, BookHeart, Cloud, Check } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useCamera } from "@/hooks/use-camera";
 import { WebGLFilter } from "@/lib/webgl-filter";
 import { AESTHETIC_PRESETS } from "@/lib/filters";
 import { AESTHETICS, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { savePhotoToCloud } from "@/lib/cloud-photos";
+import { useAuth } from "@/lib/auth";
 
 type Mode = "single" | "strip3" | "strip4" | "polaroid";
 
@@ -19,6 +21,7 @@ const MODES: { id: Mode; label: string; icon: React.ComponentType<{ className?: 
 export function CaptureStudio() {
   const navigate = useNavigate();
   const { aesthetic, setAesthetic } = useTheme();
+  const { user } = useAuth();
   const { videoRef, start, flip, ready, error } = useCamera();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterRef = useRef<WebGLFilter | null>(null);
@@ -28,7 +31,21 @@ export function CaptureStudio() {
   const [shots, setShots] = useState<string[]>([]);
   const [flash, setFlash] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const preset = AESTHETIC_PRESETS[aesthetic];
+
+  const saveToCloud = async () => {
+    if (!output) return;
+    if (!user) { setSaveState("error"); setSaveMsg("Sign in on the Profile tab to save to cloud."); return; }
+    setSaveState("saving"); setSaveMsg(null);
+    try {
+      await savePhotoToCloud({ dataUrl: output, aesthetic, folder: "captures" });
+      setSaveState("saved"); setSaveMsg("Saved to your gallery.");
+    } catch (e) {
+      setSaveState("error"); setSaveMsg(e instanceof Error ? e.message : "Save failed.");
+    }
+  };
 
   // Init WebGL once
   useEffect(() => {
