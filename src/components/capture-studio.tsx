@@ -103,6 +103,7 @@ export function CaptureStudio() {
     if (!ready) return;
     setOutput(null);
     setShots([]);
+    setSaveState("idle"); setSaveMsg(null);
     const count = mode === "strip3" ? 3 : mode === "strip4" ? 4 : 1;
     const collected: string[] = [];
     for (let i = 0; i < count; i++) {
@@ -227,12 +228,26 @@ export function CaptureStudio() {
                   <BookHeart className="h-4 w-4" /> To Journal
                 </button>
                 <button
-                  onClick={() => { setOutput(null); setShots([]); }}
+                  onClick={saveToCloud}
+                  disabled={saveState === "saving" || saveState === "saved"}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent disabled:opacity-60"
+                >
+                  {saveState === "saved" ? <Check className="h-4 w-4" /> : <Cloud className="h-4 w-4" />}
+                  {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Save to Cloud"}
+                </button>
+                <button
+                  onClick={() => { setOutput(null); setShots([]); setSaveState("idle"); setSaveMsg(null); }}
                   className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent"
                 >
                   Retake
                 </button>
               </div>
+              {saveMsg && (
+                <div className={cn(
+                  "text-xs mt-1",
+                  saveState === "error" ? "text-destructive" : "text-muted-foreground",
+                )}>{saveMsg}</div>
+              )}
             </div>
           </div>
         )}
