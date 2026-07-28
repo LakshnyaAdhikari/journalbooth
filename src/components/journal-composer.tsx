@@ -146,9 +146,9 @@ export function JournalComposer() {
 
   const currentItem = items.find((i) => i.id === selected) ?? null;
 
-  const download = async () => {
+  const renderDataUrl = async (): Promise<string | null> => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const W = 1600;
     const H = Math.round((rect.height / rect.width) * W);
@@ -202,11 +202,35 @@ export function JournalComposer() {
       }
       ctx.restore();
     }
-    const url = out.toDataURL("image/png");
+    return out.toDataURL("image/png");
+  };
+
+  const download = async () => {
+    const url = await renderDataUrl();
+    if (!url) return;
     const a = document.createElement("a");
     a.href = url;
     a.download = `altcam-journal-${aesthetic}-${Date.now()}.png`;
     a.click();
+  };
+
+  const saveToCloud = async () => {
+    if (!user) { setSaveState("error"); setSaveMsg("Sign in on the Profile tab to save to cloud."); return; }
+    if (!items.length) { setSaveState("error"); setSaveMsg("Add something to the page first."); return; }
+    setSaveState("saving"); setSaveMsg(null);
+    try {
+      const previewDataUrl = (await renderDataUrl()) ?? undefined;
+      await saveJournalPage({
+        title: title.trim() || null ? title.trim() : undefined,
+        layout: { paper, items },
+        previewDataUrl,
+        aesthetic,
+      });
+      setSaveState("saved"); setSaveMsg("Page saved to your gallery.");
+      setTimeout(() => setSaveState("idle"), 2500);
+    } catch (e) {
+      setSaveState("error"); setSaveMsg(e instanceof Error ? e.message : "Save failed.");
+    }
   };
 
   return (
