@@ -418,6 +418,25 @@ export function JournalComposer() {
         </div>
 
         <div className="flex flex-col gap-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Page title (optional)"
+            className="px-3 py-2 text-sm bg-background border border-border rounded-md"
+          />
+          <button
+            onClick={saveToCloud}
+            disabled={saveState === "saving"}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent disabled:opacity-60"
+          >
+            {saveState === "saved" ? <Check className="h-4 w-4" /> : <Cloud className="h-4 w-4" />}
+            {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Save to Cloud"}
+          </button>
+          {saveMsg && (
+            <div className={cn("text-xs", saveState === "error" ? "text-destructive" : "text-muted-foreground")}>
+              {saveMsg}
+            </div>
+          )}
           <button onClick={download} className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md">
             <Download className="h-4 w-4" /> Download PNG
           </button>
