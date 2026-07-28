@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { BookHeart, Download, ImagePlus, Trash2, Type, Sparkles, Copy, Undo2 } from "lucide-react";
+import { BookHeart, Download, ImagePlus, Trash2, Type, Sparkles, Copy, Undo2, Cloud, Check } from "lucide-react";
 import { AESTHETICS, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { saveJournalPage } from "@/lib/cloud-journal";
+import { useAuth } from "@/lib/auth";
 
 type ItemKind = "photo" | "text" | "sticker";
 type Item = {
@@ -41,16 +43,29 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 
 export function JournalComposer() {
   const { aesthetic } = useTheme();
+  const { user } = useAuth();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [paper, setPaper] = useState<keyof typeof PAPERS>("cream");
   const [history, setHistory] = useState<Item[][]>([]);
+  const [title, setTitle] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load from sessionStorage handoff
   useEffect(() => {
     try {
+      const layoutRaw = sessionStorage.getItem("altcam:journal-layout");
+      if (layoutRaw) {
+        const parsed = JSON.parse(layoutRaw) as { paper?: keyof typeof PAPERS; items?: Item[]; title?: string };
+        if (parsed.items) setItems(parsed.items);
+        if (parsed.paper && PAPERS[parsed.paper]) setPaper(parsed.paper);
+        if (parsed.title) setTitle(parsed.title);
+        sessionStorage.removeItem("altcam:journal-layout");
+        return;
+      }
       const stashed = sessionStorage.getItem("altcam:journal-image");
       if (stashed) {
         addPhoto(stashed);
@@ -146,9 +161,9 @@ export function JournalComposer() {
 
   const currentItem = items.find((i) => i.id === selected) ?? null;
 
-  const download = async () => {
+  const renderDataUrl = async (): Promise<string | null> => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const W = 1600;
     const H = Math.round((rect.height / rect.width) * W);
@@ -202,11 +217,35 @@ export function JournalComposer() {
       }
       ctx.restore();
     }
-    const url = out.toDataURL("image/png");
+    return out.toDataURL("image/png");
+  };
+
+  const download = async () => {
+    const url = await renderDataUrl();
+    if (!url) return;
     const a = document.createElement("a");
     a.href = url;
     a.download = `altcam-journal-${aesthetic}-${Date.now()}.png`;
     a.click();
+  };
+
+  const saveToCloud = async () => {
+    if (!user) { setSaveState("error"); setSaveMsg("Sign in on the Profile tab to save to cloud."); return; }
+    if (!items.length) { setSaveState("error"); setSaveMsg("Add something to the page first."); return; }
+    setSaveState("saving"); setSaveMsg(null);
+    try {
+      const previewDataUrl = (await renderDataUrl()) ?? undefined;
+      await saveJournalPage({
+        title: title.trim() || null ? title.trim() : undefined,
+        layout: { paper, items },
+        previewDataUrl,
+        aesthetic,
+      });
+      setSaveState("saved"); setSaveMsg("Page saved to your gallery.");
+      setTimeout(() => setSaveState("idle"), 2500);
+    } catch (e) {
+      setSaveState("error"); setSaveMsg(e instanceof Error ? e.message : "Save failed.");
+    }
   };
 
   return (
@@ -379,6 +418,25 @@ export function JournalComposer() {
         </div>
 
         <div className="flex flex-col gap-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Page title (optional)"
+            className="px-3 py-2 text-sm bg-background border border-border rounded-md"
+          />
+          <button
+            onClick={saveToCloud}
+            disabled={saveState === "saving"}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm border border-border rounded-md hover:bg-accent disabled:opacity-60"
+          >
+            {saveState === "saved" ? <Check className="h-4 w-4" /> : <Cloud className="h-4 w-4" />}
+            {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Save to Cloud"}
+          </button>
+          {saveMsg && (
+            <div className={cn("text-xs", saveState === "error" ? "text-destructive" : "text-muted-foreground")}>
+              {saveMsg}
+            </div>
+          )}
           <button onClick={download} className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md">
             <Download className="h-4 w-4" /> Download PNG
           </button>

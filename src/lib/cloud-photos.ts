@@ -42,3 +42,29 @@ export async function signedUrlFor(path: string, expiresIn = 3600) {
   if (error) throw error;
   return data.signedUrl;
 }
+
+export type PhotoRow = {
+  id: string;
+  user_id: string;
+  storage_path: string;
+  aesthetic: string | null;
+  created_at: string;
+};
+
+/** All photos for the signed-in user, newest first (RLS scopes this). */
+export async function listPhotos() {
+  const { data, error } = await supabase
+    .from("photos")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as PhotoRow[];
+}
+
+/** Removes the storage object and the metadata row. */
+export async function deletePhoto(row: PhotoRow) {
+  const { error: rmErr } = await supabase.storage.from("photos").remove([row.storage_path]);
+  if (rmErr) throw rmErr;
+  const { error } = await supabase.from("photos").delete().eq("id", row.id);
+  if (error) throw error;
+}
