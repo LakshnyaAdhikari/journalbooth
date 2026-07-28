@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { BookHeart, Download, ImagePlus, Trash2, Type, Sparkles, Copy, Undo2 } from "lucide-react";
+import { BookHeart, Download, ImagePlus, Trash2, Type, Sparkles, Copy, Undo2, Cloud, Check } from "lucide-react";
 import { AESTHETICS, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { saveJournalPage } from "@/lib/cloud-journal";
+import { useAuth } from "@/lib/auth";
 
 type ItemKind = "photo" | "text" | "sticker";
 type Item = {
@@ -41,11 +43,15 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 
 export function JournalComposer() {
   const { aesthetic } = useTheme();
+  const { user } = useAuth();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [paper, setPaper] = useState<keyof typeof PAPERS>("cream");
   const [history, setHistory] = useState<Item[][]>([]);
+  const [title, setTitle] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load from sessionStorage handoff
