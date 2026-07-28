@@ -57,6 +57,15 @@ export function JournalComposer() {
   // Load from sessionStorage handoff
   useEffect(() => {
     try {
+      const layoutRaw = sessionStorage.getItem("altcam:journal-layout");
+      if (layoutRaw) {
+        const parsed = JSON.parse(layoutRaw) as { paper?: keyof typeof PAPERS; items?: Item[]; title?: string };
+        if (parsed.items) setItems(parsed.items);
+        if (parsed.paper && PAPERS[parsed.paper]) setPaper(parsed.paper);
+        if (parsed.title) setTitle(parsed.title);
+        sessionStorage.removeItem("altcam:journal-layout");
+        return;
+      }
       const stashed = sessionStorage.getItem("altcam:journal-image");
       if (stashed) {
         addPhoto(stashed);
