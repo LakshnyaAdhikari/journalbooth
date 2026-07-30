@@ -5,6 +5,21 @@ import { AESTHETICS, useTheme } from "@/lib/theme";
 import { CaptureStudio } from "@/components/capture-studio";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "AltCam — live-filtered photobooth camera" },
+      {
+        name: "description",
+        content:
+          "Shoot with real-time Y2K, kawaii, goth and chaotic filters. Photobooth strips, polaroid frames, instant download — free.",
+      },
+      { property: "og:title", content: "AltCam — live-filtered photobooth camera" },
+      {
+        property: "og:description",
+        content: "Real-time filtered camera with photobooth strips and polaroid frames.",
+      },
+    ],
+  }),
   component: Capture,
 });
 

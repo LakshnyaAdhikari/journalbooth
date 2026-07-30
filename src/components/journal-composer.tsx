@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { BookHeart, Download, ImagePlus, Trash2, Type, Sparkles, Copy, Undo2, Cloud, Check } from "lucide-react";
+import { BookHeart, Download, ImagePlus, Trash2, Type, Sparkles, Copy, Undo2, Cloud, Check, Upload, X } from "lucide-react";
 import { AESTHETICS, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { saveJournalPage } from "@/lib/cloud-journal";
+import { uploadSticker, listStickers, deleteSticker, type StickerRow } from "@/lib/cloud-stickers";
 import { useAuth } from "@/lib/auth";
 
 type ItemKind = "photo" | "text" | "sticker";
@@ -22,6 +23,8 @@ type Item = {
   font?: string;
   // sticker
   glyph?: string;
+  // photo rendered without the polaroid frame (custom sticker image)
+  bare?: boolean;
 };
 
 const STICKERS = ["★", "♥", "✿", "☾", "☀", "✧", "❀", "♪", "☕", "✈", "☁", "♛"];
@@ -53,6 +56,10 @@ export function JournalComposer() {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const stickerFileRef = useRef<HTMLInputElement>(null);
+  const [myStickers, setMyStickers] = useState<StickerRow[]>([]);
+  const [stickerBusy, setStickerBusy] = useState(false);
+  const [stickerMsg, setStickerMsg] = useState<string | null>(null);
 
   // Load from sessionStorage handoff
   useEffect(() => {
@@ -74,6 +81,43 @@ export function JournalComposer() {
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load the user's custom stickers
+  useEffect(() => {
+    if (!user) { setMyStickers([]); return; }
+    listStickers().then(setMyStickers).catch(() => setMyStickers([]));
+  }, [user]);
+
+  const onStickerFile = async (files: FileList | null) => {
+    const f = files?.[0];
+    if (!f) return;
+    if (!user) { setStickerMsg("Sign in on the Profile tab to upload stickers."); return; }
+    setStickerBusy(true); setStickerMsg(null);
+    try {
+      await uploadSticker(f);
+      setMyStickers(await listStickers());
+    } catch (err) {
+      setStickerMsg(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setStickerBusy(false);
+    }
+  };
+
+  const removeSticker = async (row: StickerRow) => {
+    try {
+      await deleteSticker(row.path);
+      setMyStickers((prev) => prev.filter((s) => s.path !== row.path));
+    } catch (err) {
+      setStickerMsg(err instanceof Error ? err.message : "Delete failed.");
+    }
+  };
+
+  const addImageSticker = (src: string) => {
+    commit([
+      ...items,
+      { id: uid(), kind: "photo", src, bare: true, x: 0.5, y: 0.5, w: 0.2, rot: (Math.random() - 0.5) * 20, z: items.length + 1 },
+    ]);
+  };
 
   const commit = (next: Item[]) => {
     setHistory((h) => [...h.slice(-30), items]);
@@ -192,14 +236,16 @@ export function JournalComposer() {
         const img = await loadImg(it.src);
         const ratio = img.height / img.width;
         const h = w * ratio;
-        // paper border like polaroid
-        ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "rgba(0,0,0,0.25)";
-        ctx.shadowBlur = 20;
-        ctx.shadowOffsetY = 6;
-        ctx.fillRect(-w / 2 - 12, -h / 2 - 12, w + 24, h + 24);
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetY = 0;
+        if (!it.bare) {
+          // paper border like polaroid
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowColor = "rgba(0,0,0,0.25)";
+          ctx.shadowBlur = 20;
+          ctx.shadowOffsetY = 6;
+          ctx.fillRect(-w / 2 - 12, -h / 2 - 12, w + 24, h + 24);
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetY = 0;
+        }
         ctx.drawImage(img, -w / 2, -h / 2, w, h);
       } else if (it.kind === "text" && it.text) {
         const fontCss = FONTS.find((f) => f.id === it.font)?.css ?? "sans-serif";
@@ -286,7 +332,7 @@ export function JournalComposer() {
                 <div
                   key={it.id}
                   onPointerDown={(e) => startDrag(e, it.id)}
-                  className={cn("absolute cursor-move bg-white p-2 shadow-lg", ring)}
+                  className={cn("absolute cursor-move", it.bare ? "" : "bg-white p-2 shadow-lg", ring)}
                   style={style}
                 >
                   <img src={it.src} alt="" className="w-full h-auto block pointer-events-none" draggable={false} />
@@ -395,6 +441,47 @@ export function JournalComposer() {
                 {g}
               </button>
             ))}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-border">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">My stickers</div>
+            <button
+              onClick={() => stickerFileRef.current?.click()}
+              disabled={stickerBusy}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs border border-border rounded-md hover:bg-accent disabled:opacity-50"
+            >
+              <Upload className="h-3.5 w-3.5" /> {stickerBusy ? "Uploading…" : "Upload sticker (PNG)"}
+            </button>
+            <input
+              ref={stickerFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { onStickerFile(e.target.files); e.target.value = ""; }}
+            />
+            {stickerMsg && <p className="mt-2 text-[11px] text-destructive">{stickerMsg}</p>}
+            {myStickers.length > 0 && (
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {myStickers.map((s) => (
+                  <div key={s.path} className="relative group">
+                    <button
+                      onClick={() => addImageSticker(s.url)}
+                      className="w-full aspect-square border border-border rounded overflow-hidden bg-muted"
+                    >
+                      <img src={s.url} alt="" className="w-full h-full object-contain" loading="lazy" />
+                    </button>
+                    <button
+                      onClick={() => removeSticker(s)}
+                      aria-label="Delete sticker"
+                      className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!user && <p className="mt-2 text-[11px] text-muted-foreground">Sign in to upload your own stickers.</p>}
           </div>
         </div>
 
