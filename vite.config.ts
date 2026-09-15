@@ -9,6 +9,9 @@ import netlify from "@netlify/vite-plugin-tanstack-start";
 
 export default defineConfig({
   plugins: [netlify()],
+  // Netlify's plugin builds the SSR function and dist/client output itself.
+  // Disable Lovable's default Cloudflare Nitro output for this deployment target.
+  nitro: false,
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
