@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookHeart, Download, ImagePlus, Trash2, Type, Sparkles, Copy, Undo2, Cloud, Check, Upload, X } from "lucide-react";
+import { BookHeart, Download, ImagePlus, Trash2, Type, Sparkles, Copy, Undo2, Cloud, Check, Upload, X, Move } from "lucide-react";
 import { AESTHETICS, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { saveJournalPage } from "@/lib/cloud-journal";
@@ -299,7 +299,9 @@ export function JournalComposer() {
       <div className="space-y-3">
         <div
           ref={canvasRef}
-          onClick={() => setSelected(null)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelected(null);
+          }}
           className="relative aspect-[3/4] overflow-hidden border border-border shadow-xl select-none"
           style={{
             borderRadius: "var(--radius)",
@@ -332,7 +334,8 @@ export function JournalComposer() {
                 <div
                   key={it.id}
                   onPointerDown={(e) => startDrag(e, it.id)}
-                  className={cn("absolute cursor-move", it.bare ? "" : "bg-white p-2 shadow-lg", ring)}
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn("absolute cursor-move touch-none", it.bare ? "" : "bg-white p-2 shadow-lg", ring)}
                   style={style}
                 >
                   <img src={it.src} alt="" className="w-full h-auto block pointer-events-none" draggable={false} />
@@ -343,20 +346,46 @@ export function JournalComposer() {
               return (
                 <div
                   key={it.id}
-                  onPointerDown={(e) => startDrag(e, it.id)}
-                  className={cn("absolute cursor-move whitespace-nowrap", ring)}
-                  style={{ ...style, color: it.color, fontFamily: FONTS.find((f) => f.id === it.font)?.css, fontSize: `min(${it.w * 30}vw, 48px)` }}
+                  className={cn("absolute w-fit min-w-[1ch]", ring)}
+                  style={{ ...style, width: "fit-content" }}
                 >
-                  {it.text}
+                  <input
+                    type="text"
+                    value={it.text ?? ""}
+                    size={Math.max(1, it.text?.length ?? 0)}
+                    aria-label="Journal text"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      setSelected(it.id);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={() => setSelected(it.id)}
+                    onChange={(e) => updateItem(it.id, { text: e.target.value })}
+                    className="whitespace-nowrap bg-transparent border-0 p-0 text-center outline-none"
+                    style={{ width: "fit-content", minWidth: "1ch", color: it.color, fontFamily: FONTS.find((f) => f.id === it.font)?.css, fontSize: `${it.w * 120}px` }}
+                  />
+                  {isSel && (
+                    <button
+                      type="button"
+                      aria-label="Drag text"
+                      title="Drag text"
+                      onPointerDown={(e) => startDrag(e, it.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute -right-7 -top-1 flex h-6 w-6 cursor-move touch-none items-center justify-center rounded-full border border-border bg-card shadow-sm"
+                    >
+                      <Move className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               );
             }
             return (
               <div
-                key={it.id}
-                onPointerDown={(e) => startDrag(e, it.id)}
-                className={cn("absolute cursor-move leading-none", ring)}
-                style={{ ...style, fontSize: `min(${it.w * 60}vw, 120px)` }}
+                  key={it.id}
+                  onPointerDown={(e) => startDrag(e, it.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn("absolute cursor-move touch-none leading-none", ring)}
+                style={{ ...style, fontSize: `${it.w * 600}px` }}
               >
                 {it.glyph}
               </div>
@@ -364,47 +393,6 @@ export function JournalComposer() {
           })}
         </div>
 
-        {/* Selected controls */}
-        {currentItem && (
-          <div className="border border-border bg-card p-3 flex flex-wrap gap-2 items-center text-sm" style={{ borderRadius: "var(--radius)" }}>
-            <span className="text-xs uppercase tracking-widest text-muted-foreground mr-1">Selected</span>
-            <label className="flex items-center gap-1">
-              size
-              <input
-                type="range" min={0.05} max={0.9} step={0.01} value={currentItem.w}
-                onChange={(e) => updateItem(currentItem.id, { w: parseFloat(e.target.value) })}
-              />
-            </label>
-            <label className="flex items-center gap-1">
-              rot
-              <input
-                type="range" min={-180} max={180} step={1} value={currentItem.rot}
-                onChange={(e) => updateItem(currentItem.id, { rot: parseFloat(e.target.value) })}
-              />
-            </label>
-            {currentItem.kind === "text" && (
-              <input
-                value={currentItem.text ?? ""}
-                onChange={(e) => updateItem(currentItem.id, { text: e.target.value })}
-                className="px-2 py-1 bg-background border border-border rounded text-sm min-w-[120px]"
-              />
-            )}
-            {currentItem.kind === "text" && (
-              <div className="flex gap-1">
-                {COLORS.map((c) => (
-                  <button key={c} onClick={() => updateItem(currentItem.id, { color: c })}
-                    className="h-5 w-5 rounded-full border border-border" style={{ background: c }} />
-                ))}
-              </div>
-            )}
-            <button onClick={duplicateSelected} className="ml-auto inline-flex items-center gap-1 px-2 py-1 border border-border rounded hover:bg-accent">
-              <Copy className="h-3.5 w-3.5" /> Copy
-            </button>
-            <button onClick={removeSelected} className="inline-flex items-center gap-1 px-2 py-1 border border-border rounded hover:bg-destructive hover:text-destructive-foreground">
-              <Trash2 className="h-3.5 w-3.5" /> Delete
-            </button>
-          </div>
-        )}
       </div>
 
       <aside className="space-y-4">
@@ -425,6 +413,65 @@ export function JournalComposer() {
               <Type className="h-4 w-4" /> Text
             </button>
           </div>
+        </div>
+
+        <div className="border border-border p-4 bg-card" style={{ borderRadius: "var(--radius)" }}>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Selected item</div>
+          {currentItem ? (
+            <div className="space-y-3 text-sm">
+              <p className="text-xs text-muted-foreground capitalize">{currentItem.kind} selected</p>
+              <label className="grid grid-cols-[52px_1fr] items-center gap-2">
+                Resize
+                <input
+                  aria-label="Resize selected item"
+                  type="range" min={0.05} max={0.9} step={0.01} value={currentItem.w}
+                  onChange={(e) => updateItem(currentItem.id, { w: parseFloat(e.target.value) })}
+                />
+              </label>
+              <label className="grid grid-cols-[52px_1fr] items-center gap-2">
+                Rotate
+                <input
+                  aria-label="Rotate selected item"
+                  type="range" min={-180} max={180} step={1} value={currentItem.rot}
+                  onChange={(e) => updateItem(currentItem.id, { rot: parseFloat(e.target.value) })}
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => updateItem(currentItem.id, { rot: currentItem.rot - 15 })}
+                  className="px-2 py-1 border border-border rounded hover:bg-accent"
+                >
+                  ↶ Rotate −15°
+                </button>
+                <button
+                  onClick={() => updateItem(currentItem.id, { rot: currentItem.rot + 15 })}
+                  className="px-2 py-1 border border-border rounded hover:bg-accent"
+                >
+                  Rotate +15° ↷
+                </button>
+              </div>
+              {currentItem.kind === "text" && (
+                <div className="flex items-center gap-1">
+                  <span className="mr-1 text-xs text-muted-foreground">Color</span>
+                  {COLORS.map((c) => (
+                    <button key={c} onClick={() => updateItem(currentItem.id, { color: c })}
+                      aria-label={`Set text color to ${c}`}
+                      className="h-5 w-5 rounded-full border border-border" style={{ background: c }} />
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button onClick={duplicateSelected} className="inline-flex items-center gap-1 px-2 py-1 border border-border rounded hover:bg-accent">
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </button>
+                <button onClick={removeSelected} className="inline-flex items-center gap-1 px-2 py-1 border border-border rounded hover:bg-destructive hover:text-destructive-foreground">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Click a photo, caption, or sticker to resize or rotate it.</p>
+          )}
         </div>
 
         <div className="border border-border p-4 bg-card" style={{ borderRadius: "var(--radius)" }}>
